@@ -5,7 +5,7 @@ GRID_SIZE = 64
 NUM_OBSTACLES = 10 
 MIN_RADIUS = 3 
 MAX_RADIUS = 4 
-NUM_POINTS_PATH = 80 
+NUM_POINTS_PATH = 64 
 
 
 print(f"generating {NUM_SAMPLES} dataset samples")

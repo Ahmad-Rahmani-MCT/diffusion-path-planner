@@ -11,7 +11,7 @@ class MapEncoder(nn.Module):
             # input [batch, 3, 64, 64] 
             nn.Conv2d(3, 32, kernel_size=3, stride=2, padding=1), # output [batch, 32, 32, 32]
             nn.BatchNorm2d(32),
-            nn.ReLu(), 
+            nn.ReLU(), 
 
             nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1), # output: [Batch, 64, 16, 16]
             nn.BatchNorm2d(64),
@@ -25,7 +25,7 @@ class MapEncoder(nn.Module):
 
             # 128*8*8
             nn.Linear(128*8*8, embedding_dim), # output [batch, embedding_dim]
-            nn.ReLu()
+            nn.ReLU()
             )
     
     def forward(self, x): 
@@ -33,20 +33,18 @@ class MapEncoder(nn.Module):
     
 class DiffusionPlanner(nn.Module):
 
-    def __init__(self, condition_dim=128, sample_size=50, in_channels=2, out_channels=2):
+    def __init__(self, condition_dim=128, sample_size=64, in_channels=2, out_channels=2):
         super().__init__()
 
         self.map_encoder = MapEncoder(embedding_dim=condition_dim) 
 
         self.unet = UNet1DModel(
             sample_size= sample_size, # path length 
-            in_channels= in_channels, # x and y
+            in_channels= in_channels + condition_dim, # x and y
             out_channels= out_channels, # x and y
             down_block_types=("DownBlock1D", "AttnDownBlock1D", "DownBlock1D"),
             up_block_types=("UpBlock1D", "AttnUpBlock1D", "UpBlock1D"), 
-            down_block_types=("DownBlock1D", "AttnDownBlock1D", "DownBlock1D"),
-            up_block_types=("UpBlock1D", "AttnUpBlock1D", "UpBlock1D"), 
-            extra_in_channels=condition_dim 
+            block_out_channels=(64, 128, 256),
         )   
 
     def forward(self, noisy_path, timestep, map_image): 
@@ -55,12 +53,15 @@ class DiffusionPlanner(nn.Module):
         # timestep: shape [Batch]
         # map_image: shape [Batch, 3, 64, 64] 
 
-        map_features = self.map_encoder(map_image) # summarize map to [batch, 128] 
+        map_features = self.map_encoder(map_image) # summarize map to [batch, 128]  
+
+        map_features_expanded = map_features.unsqueeze(-1).repeat(1, 1, noisy_path.shape[-1]) # [batch, 128,50]
+
+        model_input = torch.cat([noisy_path, map_features_expanded], dim=1)
 
         noise_pred = self.unet(
-            sample=noisy_path,
+            sample=model_input,
             timestep=timestep,
-            global_cond=map_features
         ).sample  
 
         return noise_pred

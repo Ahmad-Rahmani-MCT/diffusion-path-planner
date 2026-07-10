@@ -3,19 +3,28 @@ from scipy.interpolate import splprep, splev
 from collections import deque 
 import matplotlib.pyplot as plt   
 
-def generate_single_sample(grid_size=64, num_obstacles=4, min_radius=3, max_radius=8, num_points_path=50): 
+def generate_single_sample(grid_size=64, num_obstacles=4, min_radius=3, max_radius=5, num_points_path=50): 
     while True: 
         
         obs_channel = np.zeros((grid_size, grid_size), dtype=np.float32) 
         start_channel = np.zeros((grid_size, grid_size), dtype=np.float32) 
         goal_channel = np.zeros((grid_size, grid_size), dtype=np.float32) 
 
-        for _ in range(num_obstacles): 
-            r = np.random.randint(min_radius, max_radius) 
-            cx, cy = np.random.randint(0, grid_size-r, 2) 
-            Y, X = np.ogrid[:grid_size, :grid_size] 
-            dist_from_center = np.sqrt((X-cx)**2 + (Y-cy)**2) 
-            obs_channel[dist_from_center <= r] 
+        # for _ in range(num_obstacles): 
+        #     r = np.random.randint(min_radius, max_radius) 
+        #     cx, cy = np.random.randint(0, grid_size-r, 2) 
+        #     Y, X = np.ogrid[:grid_size, :grid_size] 
+        #     dist_from_center = np.sqrt((X-cx)**2 + (Y-cy)**2) 
+        #     obs_channel[dist_from_center <= r] 
+
+        Y, X = np.meshgrid(np.arange(grid_size), np.arange(grid_size), indexing='ij')
+        for _ in range(num_obstacles):
+            cx = np.random.randint(0, grid_size)
+            cy = np.random.randint(0, grid_size)
+            r = np.random.randint(min_radius, max_radius)
+            
+            dist_sq = (X - cx)**2 + (Y - cy)**2
+            obs_channel[dist_sq <= r**2] = 1.0
 
         free_spaces = np.argwhere(obs_channel == 0) 
         if len(free_spaces) < 2: 
@@ -25,8 +34,8 @@ def generate_single_sample(grid_size=64, num_obstacles=4, min_radius=3, max_radi
         start_y, start_x = free_spaces[start_idx] 
         goal_y, goal_x = free_spaces[goal_index] 
 
-        start_channel[start_y, start_x] 
-        goal_channel[goal_y, goal_x] 
+        start_channel[start_y, start_x] = 1.0
+        goal_channel[goal_y, goal_x] = 1.0
 
         path = find_path_bfs(obs_channel, (start_x, start_y), (goal_x, goal_y)) 
 

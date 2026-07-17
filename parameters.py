@@ -9,4 +9,4 @@ SAFETY_PIXEL = 2 # obstacle dilation iteration
 NUM_POINTS_PATH = 64 # number of points in the generated path 
 NP_DATA_MAP_NAME = "maps" # name of the map data when saving in .npz
 NP_DATA_PATH_NAME = "paths" # name of the path data when saving in .npz
-MAP_PATH_DATSET_NAME = "map_path_dataset" # name of saving the dataset
+MAP_PATH_DATSET_NAME = "map_path_dataset.npz" # name of saving the dataset

@@ -18,8 +18,8 @@ for i in range(NUM_SAMPLES):
 maps_np = np.array(all_maps, dtype=np.float32)
 paths_np = np.array(all_paths, dtype=np.float32)
 
-np.savez_compressed('map_path_dataset.npz', **{NP_DATA_MAP_NAME: maps_np, NP_DATA_PATH_NAME: paths_np})
+np.savez_compressed(MAP_PATH_DATSET_NAME, **{NP_DATA_MAP_NAME: maps_np, NP_DATA_PATH_NAME: paths_np})
 
-print("dataset saved to 'map_path_dataset.npz'")
+print(f"dataset saved to '{MAP_PATH_DATSET_NAME}'")
 print(f"maps shape: {maps_np.shape}")
-print(f"trajectories shape: {paths_np.shape}")
+print(f"paths shape: {paths_np.shape}")

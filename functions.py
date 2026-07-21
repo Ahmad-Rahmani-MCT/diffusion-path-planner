@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 from scipy.ndimage import binary_dilation
 import torch
 from torch.utils.data import Dataset
+import os
 
 def generate_single_sample(grid_size: int, num_obstacles: int, min_radius: int, max_radius: int, safety_pixel: int, num_points_path: int): 
 
@@ -41,10 +42,10 @@ def generate_single_sample(grid_size: int, num_obstacles: int, min_radius: int, 
 
         if path is not None and len(path) > 3 : 
 
-            trajectory = smooth_path(path, num_points_path)        
+            path = smooth_path(path, num_points_path)        
             map_tensor = np.stack([obs_channel, start_channel, goal_channel], axis=0)
 
-            return map_tensor, trajectory 
+            return map_tensor, path 
         
 def find_path_bfs(grid, start, goal): 
     queue = deque([[start]]) # [[]] because queue refers to a path
@@ -75,15 +76,22 @@ def smooth_path(path, num_points):
     return trajectory
 
 class LoadDataset(Dataset): # inhertance from Dataset class -> directly to DataLoader
-    def __init__(self, npz_path: str, np_data_map_name: str, np_data_path_name: str): 
+    def __init__(self, npz_file_name: str, np_data_map_name: str, np_data_path_name: str, grid_size: int): 
 
+        cwd = os.getcwd() 
+        npz_path = os.path.join(cwd, npz_file_name)
         data = np.load(npz_path) 
 
-        self.maps = torch.tensor(data[np_data_map_name], dtype=torch.float32)  
-        self.path = torch.tensor(data[np_data_path_name], dtype=torch.float32)    
+        # load raw and convert to tensors 
+        raw_maps = torch.tensor(data[np_data_map_name], dtype=torch.float32)  
+        raw_paths = torch.tensor(data[np_data_path_name], dtype=torch.float32).permute(0,2,1)
+
+        # normalization     
+        self.maps = 2 * raw_maps - 1 
+        self.paths = 2 * (raw_paths / grid_size) - 1  
 
     def __len__(self): # needed for inheritance
         return len(self.maps) 
     
     def __getitem__(self, idx): # needed for inheritance
-        return self.maps[idx], self.path[idx]
+        return self.maps[idx], self.paths[idx]

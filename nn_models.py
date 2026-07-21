@@ -40,13 +40,13 @@ class Conv1DBlock(nn.Module):
         self.time_mlp = nn.Linear(time_embedding_dim, out_channels)
         self.map_mlp  = nn.Linear(map_embedding_dim, out_channels)
 
-    def forward(self, x, time_embedding_dim, map_embedding_dim):
+    def forward(self, x, time_embedding, map_embedding):
         
         h = self.relu(self.conv1(x))
 
         # inject time and map conditions
-        t_cond   = self.time_mlp(time_embedding_dim).unsqueeze(-1) # (B, out_channels, 1)
-        map_cond = self.map_mlp(map_embedding_dim).unsqueeze(-1) # (B, out_channels, 1)
+        t_cond   = self.time_mlp(time_embedding).unsqueeze(-1) # (B, out_channels, 1)
+        map_cond = self.map_mlp(map_embedding).unsqueeze(-1) # (B, out_channels, 1)
         h = h + t_cond + map_cond
 
         # second convolution
@@ -66,13 +66,13 @@ class CustomConditionalUNet(nn.Module):
         )
 
         # down path (changing feature sizes)
-        self.down1 = Conv1DBlock(2, 64, self.time_dim, map_embedding_dim)
-        self.down2 = Conv1DBlock(64, 128, self.time_dim, map_embedding_dim)
-        self.down3 = Conv1DBlock(128, 256, self.time_dim, map_embedding_dim)
+        self.down1 = Conv1DBlock(2, 64, time_embedding_dim, map_embedding_dim)
+        self.down2 = Conv1DBlock(64, 128, time_embedding_dim, map_embedding_dim)
+        self.down3 = Conv1DBlock(128, 256, time_embedding_dim, map_embedding_dim)
 
         # upward path
-        self.up1 = Conv1DBlock(256 + 128, 128, self.time_dim, map_embedding_dim)
-        self.up2 = Conv1DBlock(128 + 64, 64, self.time_dim, map_embedding_dim)
+        self.up1 = Conv1DBlock(256 + 128, 128, time_embedding_dim, map_embedding_dim)
+        self.up2 = Conv1DBlock(128 + 64, 64, time_embedding_dim, map_embedding_dim)
 
         # Final prediction layer
         self.final_conv = nn.Conv1d(64, 2, kernel_size=1)

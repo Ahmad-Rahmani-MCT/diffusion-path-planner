@@ -1,5 +1,5 @@
 ## PARAMETERS FOR DATASET CREATION ## 
-NUM_SAMPLES = 100 # number of samples in the generated dataset
+NUM_SAMPLES = 30000 # number of samples in the generated dataset
 GRID_SIZE = 64 # size of the side of the square map/grid 
 NUM_OBSTACLES = 10 # number of obstacles 
 MIN_RADIUS = 3 # minimum radius of obstacles 

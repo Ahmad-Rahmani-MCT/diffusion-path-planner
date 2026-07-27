@@ -11,12 +11,12 @@ NP_DATA_PATH_NAME = "paths" # name of the path data when saving in .npz
 MAP_PATH_DATSET_NAME = "map_path_dataset.npz" # name of saving the dataset
 
 ## PARAMETERS FOR THE DIFFUSION MODEL ## 
-MAP_EMBEDDING_DIM = 16 # map encoding dimension 
+MAP_EMBEDDING_DIM = 1024 # map encoding dimension 
 TIME_EMBEDDING_DIM = 64 # time encoding dimension 
 
 ## PARAMETERS FOR THE TRAINING SCRIPT ## 
 BATCH_SIZE = 64  
-EPOCHS = 250 
+EPOCHS = 300 
 LEARNING_RATE = 2e-4 
 NUM_DIFFUSION_STEPS = 1000 
 TRAIN_PERCENT = 0.7 

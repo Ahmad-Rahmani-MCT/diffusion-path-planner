@@ -1,0 +1,5 @@
+diffusers
+matplotlib
+numpy
+scipy
+torch

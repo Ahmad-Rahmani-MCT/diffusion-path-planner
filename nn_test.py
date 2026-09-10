@@ -3,11 +3,14 @@ import numpy as np
 import matplotlib.pyplot as plt
 from diffusers import DDPMScheduler
 from nn_models import DiffusionPlanner
-from functions import LoadDataset
+from functions import LoadDataset, set_seed
 import os
+import time
 from parameters import *
 
 def run_inference():
+
+    #set_seed(42)
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"compute device: {device}")
@@ -18,7 +21,7 @@ def run_inference():
     
     # paths 
     cwd = os.getcwd() 
-    weights_path = os.path.join(cwd, TRAINED_MODEL_WEIGHT_NAME)
+    weights_path = os.path.join(cwd, ("best_" + TRAINED_MODEL_WEIGHT_NAME))
     try:
         model.load_state_dict(torch.load(weights_path, map_location=device, weights_only=True))
         print("nn weights loaded successfully")
@@ -53,7 +56,7 @@ def run_inference():
     final_path = noisy_path.squeeze(0).cpu().numpy()
     final_path = (final_path + 1.0) * (GRID_SIZE / 2)
     real_path = real_path.numpy()
-    real_path = (real_path + 1.0) * (GRID_SIZE / 2)
+    real_path = (real_path + 1.0) * (GRID_SIZE / 2) 
 
     # construction RGB map and plotting
     test_map_np = test_map.numpy()
@@ -67,8 +70,14 @@ def run_inference():
     plt.plot(real_path[0, :], real_path[1, :], color='gray', linestyle='--', linewidth=2, label='Expert Path')
     plt.plot(final_path[0, :], final_path[1, :], color='cyan', linewidth=3, label='DDPM Generated Path')
     plt.title("DDPM Obstacle Avoidance Path Planner")
-    plt.legend()
-    plt.show()
+    plt.legend() 
+
+    os.makedirs("generated_paths", exist_ok=True)
+    save_path = f"generated_paths/path_idx{test_idx}_{int(time.time())}.png"
+    plt.savefig(save_path)
+    print(f"Plot saved to: {save_path}")
+
+    plt.show() 
 
 if __name__ == "__main__":
     run_inference()

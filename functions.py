@@ -6,6 +6,16 @@ from scipy.ndimage import binary_dilation
 import torch
 from torch.utils.data import Dataset
 import os
+import random
+
+def set_seed(seed: int = 42):
+    np.random.seed(seed)
+    random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    print(f"seed set to {seed}")
 
 def generate_single_sample(grid_size: int, num_obstacles: int, min_radius: int, max_radius: int, safety_pixel: int, num_points_path: int): 
 
@@ -20,23 +30,27 @@ def generate_single_sample(grid_size: int, num_obstacles: int, min_radius: int, 
         for _ in range(num_obstacles):
             cx = np.random.randint(0, grid_size)
             cy = np.random.randint(0, grid_size)
-            r = np.random.randint(min_radius, max_radius)
+            r = np.random.randint(min_radius, max_radius+1)
             dist_sq = (X - cx)**2 + (Y - cy)**2 # square distance from all points in the grid to the center of obstacles
             obs_channel[dist_sq <= r**2] = 1.0 
 
         # inflate obstacles by 2 pixel (safety margin)
-        safe_obs_channel = binary_dilation(obs_channel, iterations=2).astype(np.float32)
+        safe_obs_channel = binary_dilation(obs_channel, iterations=safety_pixel).astype(np.float32)
         free_spaces = np.argwhere(safe_obs_channel == 0) # indices of where is zero
 
         if len(free_spaces) < 2: # no place for start and goal
             continue 
 
-        start_idx, goal_index = np.random.choice(len(free_spaces), safety_pixel, replace=False) 
+        start_idx, goal_index = np.random.choice(len(free_spaces), 2, replace=False) 
         start_y, start_x = free_spaces[start_idx] 
         goal_y, goal_x = free_spaces[goal_index] 
 
         start_channel[start_y, start_x] = 1.0
-        goal_channel[goal_y, goal_x] = 1.0
+        goal_channel[goal_y, goal_x] = 1.0 
+
+        # dilating the blobs 
+        start_channel = binary_dilation(start_channel, iterations=3).astype(np.float32)
+        goal_channel = binary_dilation(goal_channel, iterations=3).astype(np.float32)
 
         path = find_path_bfs(safe_obs_channel, (start_x, start_y), (goal_x, goal_y))
 

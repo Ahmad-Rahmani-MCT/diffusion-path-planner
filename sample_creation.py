@@ -1,6 +1,8 @@
 import numpy as np
-from functions import generate_single_sample 
+from functions import generate_single_sample, set_seed
 from parameters import *
+
+set_seed(42)
 
 print(f"generating {NUM_SAMPLES} dataset samples")
 

@@ -4,10 +4,12 @@ import torch.optim as optim
 from torch.utils.data import DataLoader, random_split 
 from diffusers import DDPMScheduler
 from nn_models import DiffusionPlanner 
-from functions import LoadDataset
+from functions import LoadDataset, set_seed
 from parameters import * 
 
 def train():  
+
+    set_seed(42)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu") 
     print(f"compute device: {device}") 
@@ -26,11 +28,14 @@ def train():
 
     # diffusion model instatiation
     model = DiffusionPlanner(map_embedding_dim=MAP_EMBEDDING_DIM, time_embedding_dim=TIME_EMBEDDING_DIM).to(device=device)
-    optimizer = optim.AdamW(model.parameters(), lr=LEARNING_RATE) 
+    optimizer = optim.AdamW(model.parameters(), lr=LEARNING_RATE, weight_decay=1e-4)  
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=5)
     noise_scheduler = DDPMScheduler(num_train_timesteps=NUM_DIFFUSION_STEPS) 
     loss_fn = nn.MSELoss() 
 
     print(f"starting training (train sample size: {train_size}, val sample size: {val_size})") 
+
+    best_val_loss = float('inf')
 
     for epoch in range(EPOCHS): 
         
@@ -73,6 +78,14 @@ def train():
                 loss = loss_fn(predicted_noise, noise) 
                 val_loss += loss.item()
 
+        avg_val_loss = val_loss / len(val_loader)
+        scheduler.step(avg_val_loss)
+
+        # save whenever val improves
+        if avg_val_loss < best_val_loss:
+            best_val_loss = avg_val_loss
+            torch.save(model.state_dict(), "best_" + TRAINED_MODEL_WEIGHT_NAME)
+
         # stats every 50 epochs
         if (epoch+1) % 10 == 0 : 
             avg_train_loss = train_loss / len(train_loader)
@@ -83,6 +96,8 @@ def train():
 
     # testing
     print("start testing phase") 
+
+    model.load_state_dict(torch.load("best_" + TRAINED_MODEL_WEIGHT_NAME, map_location=device, weights_only=True))
 
     model.eval()
     
@@ -102,10 +117,6 @@ def train():
 
     avg_test_loss = test_loss / len(test_loader)
     print(f"test loss: {avg_test_loss:.5f}")
-
-    # saving 
-    torch.save(model.state_dict(), TRAINED_MODEL_WEIGHT_NAME)
-    print(f"model saved to {TRAINED_MODEL_WEIGHT_NAME}")
 
 if __name__ == "__main__":
     train()

@@ -8,14 +8,17 @@ class MapEncoder(nn.Module):
         super().__init__()
 
         self.cnn = nn.Sequential(
-            nn.Conv2d(3, 32, kernel_size=3, stride=2, padding=1),
-            nn.ReLU(),
-            nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1),
+            nn.Conv2d(3, 64, kernel_size=3, stride=2, padding=1),
+            nn.BatchNorm2d(64),
             nn.ReLU(),
             nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=1),
+            nn.BatchNorm2d(128),
+            nn.ReLU(),
+            nn.Conv2d(128, 256, kernel_size=3, stride=2, padding=1),
+            nn.BatchNorm2d(256),
             nn.ReLU(),
             nn.Flatten(),
-            nn.Linear(128*8*8, map_embedding_dim),
+            nn.Linear(256*8*8, map_embedding_dim),
             nn.Tanh()
         )
 
@@ -26,28 +29,35 @@ class Conv1DBlock(nn.Module):
 
     """
     1D convolutional block with conditioning.
-    Conv1d -> relu -> add time + map condition -> Conv1d -> relu
     """
     
     def __init__(self, in_channels, out_channels, time_embedding_dim, map_embedding_dim):
         super().__init__()
 
-        self.conv1 = nn.Conv1d(in_channels, out_channels, kernel_size=3, padding=1)
-        self.conv2 = nn.Conv1d(out_channels, out_channels, kernel_size=3, padding=1)
+        self.conv1 = nn.Conv1d(in_channels, out_channels, kernel_size=5, padding=2)
+        self.conv2 = nn.Conv1d(out_channels, out_channels, kernel_size=5, padding=2)
         self.relu = nn.ReLU()
 
-        # projectors for time and map embeddings
+        # film 
         self.time_mlp = nn.Linear(time_embedding_dim, out_channels)
-        self.map_mlp  = nn.Linear(map_embedding_dim, out_channels)
+
+        self.film_mlp = nn.Sequential(
+        nn.Linear(map_embedding_dim, out_channels),
+        nn.ReLU(),
+        nn.Linear(out_channels, 2 * out_channels)
+        )
+
+        nn.init.zeros_(self.film_mlp[-1].weight)
+        nn.init.zeros_(self.film_mlp[-1].bias) 
 
     def forward(self, x, time_embedding, map_embedding):
         
         h = self.relu(self.conv1(x))
-
-        # inject time and map conditions
-        t_cond   = self.time_mlp(time_embedding).unsqueeze(-1) # (B, out_channels, 1)
-        map_cond = self.map_mlp(map_embedding).unsqueeze(-1) # (B, out_channels, 1)
-        h = h + t_cond + map_cond
+        t_cond = self.time_mlp(time_embedding).unsqueeze(-1)
+        h = h + t_cond
+        film_params = self.film_mlp(map_embedding)
+        gamma, beta = film_params.chunk(2, dim=-1)
+        h = (1.0 + gamma.unsqueeze(-1)) * h + beta.unsqueeze(-1)
 
         # second convolution
         h = self.relu(self.conv2(h))
@@ -66,16 +76,16 @@ class CustomConditionalUNet(nn.Module):
         )
 
         # down path (changing feature sizes)
-        self.down1 = Conv1DBlock(2, 64, time_embedding_dim, map_embedding_dim)
-        self.down2 = Conv1DBlock(64, 128, time_embedding_dim, map_embedding_dim)
-        self.down3 = Conv1DBlock(128, 256, time_embedding_dim, map_embedding_dim)
+        self.down1 = Conv1DBlock(2, 128, time_embedding_dim, map_embedding_dim)
+        self.down2 = Conv1DBlock(128, 256, time_embedding_dim, map_embedding_dim)
+        self.down3 = Conv1DBlock(256, 512, time_embedding_dim, map_embedding_dim)
 
         # upward path
-        self.up1 = Conv1DBlock(256 + 128, 128, time_embedding_dim, map_embedding_dim)
-        self.up2 = Conv1DBlock(128 + 64, 64, time_embedding_dim, map_embedding_dim)
+        self.up1 = Conv1DBlock(512 + 256, 256, time_embedding_dim, map_embedding_dim)
+        self.up2 = Conv1DBlock(256 + 128, 128, time_embedding_dim, map_embedding_dim)
 
         # Final prediction layer
-        self.final_conv = nn.Conv1d(64, 2, kernel_size=1)
+        self.final_conv = nn.Conv1d(128, 2, kernel_size=1)
 
     def forward(self, x, timestep, map_features):
         # process time
@@ -115,3 +125,6 @@ class DiffusionPlanner(nn.Module):
         map_features = self.map_encoder(map_image)
         noise_pred = self.unet(noisy_path, timestep, map_features)
         return noise_pred
+
+    def forward_with_features(self, noisy_path, timestep, map_features):
+        return self.unet(noisy_path, timestep, map_features)
